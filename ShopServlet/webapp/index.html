@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shop - Products</title>
+    <style>
+        body { font-family: sans-serif; max-width: 760px; margin: 30px auto; padding: 0 16px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+        th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+        input { padding: 5px; margin-right: 6px; }
+        button { padding: 5px 10px; cursor: pointer; }
+        #msg { margin-top: 10px; color: #b00; }
+    </style>
+</head>
+<body>
+<h2>Products</h2>
+
+<!-- Fill the form and hit Save. If ID is empty it creates, otherwise it updates. -->
+<form id="form">
+    <input id="id" placeholder="ID (blank = new)" size="10">
+    <input id="name" placeholder="Name" required>
+    <input id="price" placeholder="Price" type="number" step="0.01" required size="8">
+    <input id="quantity" placeholder="Qty" type="number" required size="5">
+    <button type="submit">Save</button>
+    <button type="button" onclick="clearForm()">Clear</button>
+</form>
+<div id="msg"></div>
+
+<table>
+    <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Qty</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+</table>
+
+<script>
+    const api = 'products';
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    let products = [];
+
+    async function load() {
+        const res = await fetch(api);
+        products = await res.json();
+        $('rows').innerHTML = products.map(p => `
+            <tr>
+                <td>${p.id}</td><td>${esc(p.name)}</td><td>${p.price}</td><td>${p.quantity}</td>
+                <td>
+                    <button onclick="edit(${p.id})">Edit</button>
+                    <button onclick="removeProduct(${p.id})">Delete</button>
+                </td>
+            </tr>`).join('');
+    }
+
+    $('form').onsubmit = async e => {
+        e.preventDefault();
+        const body = new URLSearchParams({
+            name: $('name').value, price: $('price').value, quantity: $('quantity').value
+        });
+        const id = $('id').value.trim();
+        const res = id
+            ? await fetch(`${api}?id=${id}`, { method: 'PUT', body })
+            : await fetch(api, { method: 'POST', body });
+        await show(res);
+        if (res.ok) clearForm();
+    };
+
+    async function removeProduct(id) {
+        if (!confirm('Delete product ' + id + '?')) return;
+        await show(await fetch(`${api}?id=${id}`, { method: 'DELETE' }));
+    }
+
+    function edit(id) {
+        const p = products.find(x => x.id === id);
+        $('id').value = p.id; $('name').value = p.name;
+        $('price').value = p.price; $('quantity').value = p.quantity;
+    }
+
+    function clearForm() { $('form').reset(); }
+
+    async function show(res) {
+        const data = await res.json();
+        $('msg').textContent = res.ok ? '' : data.error;
+        load();
+    }
+
+    load();
+</script>
+</body>
+</html>
